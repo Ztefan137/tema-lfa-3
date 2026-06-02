@@ -4,6 +4,7 @@
 #include <string>
 #include <set>
 #include <map>
+#include <algorithm>
 
 std::vector<std::string> split_null(const std::string& s) {
     std::vector<std::string> result;
@@ -46,6 +47,7 @@ bool capital_letters(std::vector<std::string> letters){
 struct production{
     std::string init;
     std::vector<std::string> characters;
+    production()=default;
     production(std::string init,std::vector<std::string> characters) : init(init), characters(characters){
 
     }
@@ -137,24 +139,43 @@ public:
             std::getline(file,line);
             productions.insert({split(line,' ')[0],split(split(line,' ')[1],'\0')});
         }
-        std::getline(file,line);
-        start=line;
     }
     void print(){
         for(auto production:productions){
             production.print();
         }
     }
+
+    std::vector<std::string> remove_string(std::vector<std::string> vec, const std::string& to_remove) {
+        vec.erase(std::remove(vec.begin(), vec.end(), to_remove), vec.end());
+        return vec;
+    }
+
+    void eliminate_lambda_productions_helper(const production& prod, const std::vector<std::string>& lambda_non_terminals, int index){
+        if(index >= lambda_non_terminals.size()){
+            return;
+        }
+
+        production modified_production;
+        modified_production.init = prod.init;
+        modified_production.characters = remove_string(prod.characters, lambda_non_terminals[index]);
+
+        productions.insert(modified_production);
+        eliminate_lambda_productions_helper(modified_production, lambda_non_terminals, index + 1);
+        eliminate_lambda_productions_helper(prod, lambda_non_terminals, index + 1);
+
+    }
     void eliminate_lambda_productions(){
         std::set<production> null_productions=find("null_productions");
-        std::set<std::string> lambda_non_terminals;
+        std::vector<std::string> lambda_non_terminals;
         for(auto production:null_productions){
-            lambda_non_terminals.insert(production.init);
+            lambda_non_terminals.push_back(production.init);
         }
         for(auto production:productions){
-            for(auto non_terminal:lambda_non_terminals){
-                
-            }
+            eliminate_lambda_productions_helper(production,lambda_non_terminals,0);
+        }
+        for(auto production:null_productions){
+            productions.erase(production);
         }
     }
     void eliminate_self_productions(){
@@ -177,6 +198,9 @@ public:
                 productions.erase(curr_production);
             }
         }
+    }
+    void eliminate_inaccesible_productions(){
+        //TO DO
     }
     void eliminate_long_productions() {
         std::set<production> long_productions = find("long_productions");
@@ -226,8 +250,9 @@ public:
         }
     }
     void normalize(){
-        //this->eliminate_lambda_productions();
+        this->eliminate_lambda_productions();
         this->eliminate_unit_productions();
+        //this->eliminate_inaccesible_productions();
         this->eliminate_long_productions();
         this->eliminate_binary_non_terminals();
     }
@@ -241,6 +266,10 @@ public:
         return count;
     }
     void generate_words(int length){
+        //ar trebui sa tina o multime de cuvinte
+        //incepand cu neterminalul de start
+        ///si la fiecare iteratie sa inlocuiasca neterminalele din "cuvintele" din multime
+        //si algoritmul ruleaza de maxim length iteratii datorita faptului ca gramatica e in cnf
         std::ofstream file("gramatica_output.txt");
         std::set<std::string> result;
         result.insert(start);
@@ -257,14 +286,11 @@ public:
                     std::set<production> letter_productions = determine_letter_productions(std::string(1,letter));
                     for(auto production:letter_productions){
                         std::string new_word = word;
-                        int pos = new_word.find(letter);
-                        if(pos != std::string::npos){
-                            std::string replacement;
-                            for(auto character:production.characters){
-                                replacement+=character;
+                        for(auto curr_letter:production.characters){
+                            if(curr_letter == std::string(1,letter)){
+                                new_word.replace(new_word.find(letter), 1, curr_letter);
+                                temp_result.insert(new_word);    
                             }
-                            new_word.replace(pos, 1, replacement);
-                            temp_result.insert(new_word);
                         }
                     }
                 }
