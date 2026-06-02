@@ -4,6 +4,7 @@
 #include <string>
 #include <set>
 #include <map>
+#include <algorithm>
 
 std::vector<std::string> split_null(const std::string& s) {
     std::vector<std::string> result;
@@ -46,6 +47,7 @@ bool capital_letters(std::vector<std::string> letters){
 struct production{
     std::string init;
     std::vector<std::string> characters;
+    production()=default;
     production(std::string init,std::vector<std::string> characters) : init(init), characters(characters){
 
     }
@@ -143,18 +145,38 @@ public:
             production.print();
         }
     }
+
+    std::vector<std::string> remove_string(std::vector<std::string> vec, const std::string& to_remove) {
+        vec.erase(std::remove(vec.begin(), vec.end(), to_remove), vec.end());
+        return vec;
+    }
+
+    void eliminate_lambda_productions_helper(const production& prod, const std::vector<std::string>& lambda_non_terminals, int index){
+        if(index >= lambda_non_terminals.size()){
+            return;
+        }
+
+        production modified_production;
+        modified_production.init = prod.init;
+        modified_production.characters = remove_string(prod.characters, lambda_non_terminals[index]);
+
+        productions.insert(modified_production);
+        eliminate_lambda_productions_helper(modified_production, lambda_non_terminals, index + 1);
+        eliminate_lambda_productions_helper(prod, lambda_non_terminals, index + 1);
+
+    }
     void eliminate_lambda_productions(){
         std::set<production> null_productions=find("null_productions");
-        std::set<std::string> lambda_non_terminals;
+        std::vector<std::string> lambda_non_terminals;
         for(auto production:null_productions){
-            lambda_non_terminals.insert(production.init);
+            lambda_non_terminals.push_back(production.init);
         }
         for(auto production:productions){
-            for(auto non_terminal:lambda_non_terminals){
-
-            }
+            eliminate_lambda_productions_helper(production,lambda_non_terminals,0);
         }
-        //TO DO
+        for(auto production:null_productions){
+            productions.erase(production);
+        }
     }
     void eliminate_self_productions(){
         std::set<production> unit_productions=this->find("unit_productions");
@@ -228,8 +250,9 @@ public:
         }
     }
     void normalize(){
-        //this->eliminate_lambda_productions();
+        this->eliminate_lambda_productions();
         this->eliminate_unit_productions();
+        //this->eliminate_inaccesible_productions();
         this->eliminate_long_productions();
         this->eliminate_binary_non_terminals();
     }
